@@ -1,5 +1,5 @@
-import BillingApp from "./BillingApp";
+import BillingApp from './BillingApp'
 
 export default function App() {
-  return <BillingApp />;
+  return <BillingApp />
 }
