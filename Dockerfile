@@ -1,14 +1,12 @@
 FROM node:18-alpine AS builder
 WORKDIR /app
-ENV NODE_ENV=development
-RUN apk add --no-cache python3 make g++ git bash
+RUN apk add --no-cache python3 make g++ git
 COPY package.json package-lock.json* ./
 RUN npm install
 COPY . .
 RUN npm run build
-
 FROM nginx:stable-alpine
 RUN rm -rf /usr/share/nginx/html/*
 COPY --from=builder /app/dist /usr/share/nginx/html
 EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["nginx","-g","daemon off;"]
