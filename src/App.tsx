@@ -1,2 +1,7 @@
-import BillingApp from './BillingApp'
-export default ()=> <BillingApp />
+import BillingApp from "./BillingApp";
+
+function App() {
+  return <BillingApp />;
+}
+
+export default App;
