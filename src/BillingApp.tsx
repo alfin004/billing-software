@@ -1,6 +1,20 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 export default function BillingApp() {
+  // ===== LOCAL STORAGE HELPERS =====
+  const saveToStorage = (key, value) => {
+    localStorage.setItem(key, JSON.stringify(value));
+  };
+
+  const loadFromStorage = (key) => {
+    try {
+      const v = localStorage.getItem(key);
+      return v ? JSON.parse(v) : null;
+    } catch {
+      return null;
+    }
+  };
+
   // SELLER / COMPANY DETAILS (editable)
   const [seller, setSeller] = useState({
     name: "Your Company Name",
@@ -35,9 +49,17 @@ export default function BillingApp() {
   ]);
 
   // TAX
-  const [taxType, setTaxType] = useState("CGST_SGST"); // CGST_SGST | IGST
+  const [taxType, setTaxType] = useState("CGST_SGST"); // CGST_SGST | IGST | NO_GST
   const [tax, setTax] = useState({ cgst: 9, sgst: 9, igst: 18 });
   const [showCanvasPreview, setShowCanvasPreview] = useState(false);
+
+    // ===== LOAD FROM LOCAL STORAGE ON FIRST LOAD =====
+  useEffect(() => {
+    const savedSeller = loadFromStorage("billing_seller");
+    const savedBank = loadFromStorage("billing_bank");
+    if (savedSeller) setSeller(savedSeller);
+    if (savedBank) setSeller((prev) => ({ ...prev, ...savedBank }));
+  }, []);
 
   const updateItem = (i, f, v) => {
     const n = [...items];
@@ -102,7 +124,7 @@ export default function BillingApp() {
         <strong>${seller.name}</strong><br/>
         ${seller.address}<br/>
         Mob: ${seller.phone}<br/>
-        <strong>TAX INVOICE</strong><br/>
+        <strong>${taxType === "NO_GST" ? "INVOICE" : "TAX INVOICE"}</strong><br/>
         GSTIN: ${seller.gst}
       </div>
 
@@ -117,15 +139,45 @@ export default function BillingApp() {
         <strong>DETAILS OF RECEIVER / BILLED TO</strong><br/>
         <strong>Name:</strong> ${buyer.name}<br/>
         <strong>Address:</strong> ${buyer.address}<br/>
-        <strong>GSTIN:</strong> ${buyer.gst}<br/>
+        ${taxType === "NO_GST" ? "" : `<strong>GSTIN:</strong> ${buyer.gst}<br/>`}
         <strong>State:</strong> ${buyer.state} &nbsp;&nbsp; <strong>Code:</strong> ${buyer.stateCode} &nbsp;&nbsp; <strong>Place of Supply:</strong> ${buyer.placeOfSupply}
       </div>
 
+      <!-- ITEMS TABLE -->
+      <table style="margin-top:6px">
+        <thead>
+          <tr>
+            <th>Sl No</th>
+            <th>Particulars</th>
+            <th>HSN</th>
+            <th>Rate</th>
+            <th>Qty</th>
+            <th>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.map((i,idx)=>`
+            <tr>
+              <td style="text-align:center">${idx+1}</td>
+              <td>${i.name}</td>
+              <td style="text-align:center">${i.hsn}</td>
+              <td style="text-align:right">${i.rate}</td>
+              <td style="text-align:center">${i.qty}</td>
+              <td style="text-align:right">${i.amount.toFixed(2)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+
       <table style="margin-top:6px">
         <tr><td class="right">Total Taxable Value</td><td class="right">₹${sub.toFixed(2)}</td></tr>
-        <tr><td class="right">CGST @ ${tax.cgst}%</td><td class="right">₹${cgstAmt.toFixed(2)}</td></tr>
-        <tr><td class="right">SGST @ ${tax.sgst}%</td><td class="right">₹${sgstAmt.toFixed(2)}</td></tr>
-        <tr><td class="right">IGST</td><td class="right">₹${igstAmt.toFixed(2)}</td></tr>
+        ${taxType === "CGST_SGST" ? `
+          <tr><td class="right">CGST @ ${tax.cgst}%</td><td class="right">₹${cgstAmt.toFixed(2)}</td></tr>
+          <tr><td class="right">SGST @ ${tax.sgst}%</td><td class="right">₹${sgstAmt.toFixed(2)}</td></tr>
+        ` : ""}
+        ${taxType === "IGST" ? `
+          <tr><td class="right">IGST @ ${tax.igst}%</td><td class="right">₹${igstAmt.toFixed(2)}</td></tr>
+        ` : ""}
         <tr><td class="right"><strong>Total Invoice Value</strong></td><td class="right"><strong>₹${total.toFixed(2)}</strong></td></tr>
       </table>
 
@@ -159,7 +211,29 @@ export default function BillingApp() {
   return (
     <div className="bg-gray-100 min-h-screen p-6">
       <div className="bg-white p-6 rounded shadow max-w-6xl mx-auto">
-        <h1 className="text-2xl font-bold mb-4">Billing Software</h1>
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-2xl font-bold">Billing Software</h1>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                const { bankName, accountName, accountNumber, ifsc, ...company } = seller;
+                saveToStorage("billing_seller", company);
+                saveToStorage("billing_bank", { bankName, accountName, accountNumber, ifsc });
+                alert("Company & bank details saved");
+              }}
+              className="bg-blue-600 text-white px-3 py-1 rounded text-sm"
+            >Save Details</button>
+            <button
+              onClick={() => {
+                const savedSeller = loadFromStorage("billing_seller");
+                const savedBank = loadFromStorage("billing_bank");
+                if (savedSeller) setSeller(savedSeller);
+                if (savedBank) setSeller((prev) => ({ ...prev, ...savedBank }));
+              }}
+              className="bg-gray-600 text-white px-3 py-1 rounded text-sm"
+            >Load Details</button>
+          </div>
+        </div>
 
         <h2 className="font-semibold mb-2">Company Details</h2>
         <div className="grid grid-cols-2 gap-4 mb-4">
@@ -196,6 +270,10 @@ export default function BillingApp() {
           <label className="flex items-center gap-2">
             <input type="radio" checked={taxType==="IGST"} onChange={()=>setTaxType("IGST")} />
             IGST
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="radio" checked={taxType==="NO_GST"} onChange={()=>setTaxType("NO_GST")} />
+            No GST
           </label>
         </div>
 
