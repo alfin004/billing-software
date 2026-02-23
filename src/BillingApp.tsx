@@ -125,7 +125,7 @@ export default function BillingApp() {
         ${seller.address}<br/>
         Mob: ${seller.phone}<br/>
         <strong>${taxType === "NO_GST" ? "INVOICE" : "TAX INVOICE"}</strong><br/>
-        GSTIN: ${seller.gst}
+        ${taxType === "NO_GST" ? "" : `GSTIN: ${seller.gst}`}
       </div>
 
       <table class="no-border" style="margin-top:6px">
@@ -149,7 +149,7 @@ export default function BillingApp() {
           <tr>
             <th>Sl No</th>
             <th>Particulars</th>
-            <th>HSN</th>
+            ${taxType === "NO_GST" ? "" : "<th>HSN</th>"}
             <th>Rate</th>
             <th>Qty</th>
             <th>Amount</th>
@@ -160,7 +160,7 @@ export default function BillingApp() {
             <tr>
               <td style="text-align:center">${idx+1}</td>
               <td>${i.name}</td>
-              <td style="text-align:center">${i.hsn}</td>
+              ${taxType === "NO_GST" ? "" : `<td style="text-align:center">${i.hsn}</td>`}
               <td style="text-align:right">${i.rate}</td>
               <td style="text-align:center">${i.qty}</td>
               <td style="text-align:right">${i.amount.toFixed(2)}</td>
@@ -170,7 +170,7 @@ export default function BillingApp() {
       </table>
 
       <table style="margin-top:6px">
-        <tr><td class="right">Total Taxable Value</td><td class="right">₹${sub.toFixed(2)}</td></tr>
+        ${taxType === "NO_GST" ? "" : `<tr><td class="right">Total Taxable Value</td><td class="right">₹${sub.toFixed(2)}</td></tr>`}
         ${taxType === "CGST_SGST" ? `
           <tr><td class="right">CGST @ ${tax.cgst}%</td><td class="right">₹${cgstAmt.toFixed(2)}</td></tr>
           <tr><td class="right">SGST @ ${tax.sgst}%</td><td class="right">₹${sgstAmt.toFixed(2)}</td></tr>
@@ -206,6 +206,27 @@ export default function BillingApp() {
     if (!w) { setShowCanvasPreview(true); return; }
     w.document.write(invoiceHTML);
     w.document.close();
+  };
+
+  // ===== IMPORT JSON & REBUILD INVOICE =====
+  const importJSON = (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (data.seller) setSeller(data.seller);
+        if (data.buyer) setBuyer(data.buyer);
+        if (data.invoice) setInvoice(data.invoice);
+        if (Array.isArray(data.items)) setItems(data.items);
+        if (data.taxType) setTaxType(data.taxType);
+        if (data.tax) setTax(data.tax);
+        alert("Invoice imported successfully");
+      } catch (err) {
+        alert("Invalid invoice JSON file");
+      }
+    };
+    reader.readAsText(file);
   };
 
   return (
@@ -314,6 +335,36 @@ export default function BillingApp() {
         <button onClick={addItem} className="bg-blue-600 text-white px-4 py-2 rounded">Add Item</button>
 
         <div className="flex gap-3 mt-6">
+          <label className="bg-gray-700 text-white px-6 py-2 rounded cursor-pointer">
+            Import JSON
+            <input
+              type="file"
+              accept="application/json"
+              hidden
+              onChange={(e) => importJSON(e.target.files?.[0])}
+            />
+          </label>
+          <button
+            onClick={() => {
+              const data = {
+                seller,
+                buyer,
+                invoice,
+                items,
+                taxType,
+                tax,
+                total,
+                amountInWords
+              };
+              const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+              const a = document.createElement('a');
+              a.href = URL.createObjectURL(blob);
+              a.download = `invoice_${invoice.number || 'draft'}.json`;
+              a.click();
+              URL.revokeObjectURL(a.href);
+            }}
+            className="bg-purple-600 text-white px-6 py-2 rounded"
+          >Download JSON</button>
           <button onClick={openPreview} className="bg-green-600 text-white px-6 py-2 rounded">Preview / Print / Download</button>
         </div>
       </div>
