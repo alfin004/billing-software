@@ -43,6 +43,9 @@ export default function BillingApp() {
     date: ""
   });
 
+  // LOGO
+  const [logo, setLogo] = useState(null);
+
   // ITEMS
   const [items, setItems] = useState([
     { name: "", hsn: "", rate: 0, qty: 1, amount: 0 }
@@ -62,9 +65,12 @@ export default function BillingApp() {
   }, []);
 
   const updateItem = (i, f, v) => {
-    const n = [...items];
-    n[i][f] = v;
-    n[i].amount = n[i].rate * n[i].qty;
+    const n = items.map((it, idx) => {
+      if (idx !== i) return it;
+      const updated = { ...it, [f]: v };
+      updated.amount = Number(updated.rate) * Number(updated.qty);
+      return updated;
+    });
     setItems(n);
   };
 
@@ -121,6 +127,7 @@ export default function BillingApp() {
 
     <div class="page" id="inv">
       <div class="center">
+        ${logo ? `<img src="${logo}" style="max-height:80px;" /><br/>` : ""}
         <strong>${seller.name}</strong><br/>
         ${seller.address}<br/>
         Mob: ${seller.phone}<br/>
@@ -218,7 +225,16 @@ export default function BillingApp() {
         if (data.seller) setSeller(data.seller);
         if (data.buyer) setBuyer(data.buyer);
         if (data.invoice) setInvoice(data.invoice);
-        if (Array.isArray(data.items)) setItems(data.items);
+        if (Array.isArray(data.items)) {
+          const normalized = data.items.map(it => ({
+            name: it.name || "",
+            hsn: it.hsn || "",
+            rate: Number(it.rate) || 0,
+            qty: Number(it.qty) || 1,
+            amount: Number(it.rate || 0) * Number(it.qty || 1)
+          }));
+          setItems(normalized.length ? normalized : [{ name: "", hsn: "", rate: 0, qty: 1, amount: 0 }]);
+        }
         if (data.taxType) setTaxType(data.taxType);
         if (data.tax) setTax(data.tax);
         alert("Invoice imported successfully");
@@ -317,15 +333,26 @@ export default function BillingApp() {
           <input className="border p-2" type="date" value={invoice.date} onChange={e=>setInvoice({...invoice,date:e.target.value})} />
         </div>
 
+        <div className="mb-4">
+          <label className="block mb-1 font-semibold">Company Logo</label>
+          <input type="file" accept="image/*" onChange={e => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = ev => setLogo(ev.target.result);
+            reader.readAsDataURL(file);
+          }} />
+        </div>
+
         <table className="w-full border mb-4 text-sm">
           <thead className="bg-gray-100"><tr><th>Item</th><th>HSN</th><th>Rate</th><th>Qty</th><th>Amount</th></tr></thead>
           <tbody>
             {items.map((it,i)=>(
               <tr key={i} className="text-center">
-                <td><input className="border p-1" onChange={e=>updateItem(i,'name',e.target.value)} /></td>
-                <td><input className="border p-1" onChange={e=>updateItem(i,'hsn',e.target.value)} /></td>
-                <td><input className="border p-1" type="number" onChange={e=>updateItem(i,'rate',+e.target.value)} /></td>
-                <td><input className="border p-1" type="number" onChange={e=>updateItem(i,'qty',+e.target.value)} /></td>
+                <td><input className="border p-1" value={it.name} onChange={e=>updateItem(i,'name',e.target.value)} /></td>
+                <td><input className="border p-1" value={it.hsn} onChange={e=>updateItem(i,'hsn',e.target.value)} /></td>
+                <td><input className="border p-1" type="number" value={it.rate} onChange={e=>updateItem(i,'rate',+e.target.value)} /></td>
+                <td><input className="border p-1" type="number" value={it.qty} onChange={e=>updateItem(i,'qty',+e.target.value)} /></td>
                 <td>{it.amount.toFixed(2)}</td>
               </tr>
             ))}
